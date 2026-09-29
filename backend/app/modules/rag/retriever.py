@@ -31,6 +31,12 @@ _B = 0.75
 # unanswerable from this corpus.
 _MAX_OOV = 0.5
 
+# Multiplier applied to OBSERVED (capture-derived) spans so a finding from the
+# capture under analysis outranks generic standards prose. Retrieval only; the
+# cite-or-refuse verification in the generator is unchanged, so this cannot
+# manufacture support for a claim the evidence does not contain.
+_OBSERVED_PRIOR = 0.75
+
 # Verbatim requirement text, used for exact-phrase recall. These are short
 # normative sentences, not paraphrase, so a match is checkable against the RFC.
 RFC_REQUIREMENTS: List[Tuple[str, str, str]] = [
@@ -202,8 +208,38 @@ _QUESTION_WORDS = {
 }
 
 
+# Analyst phrasing mapped onto the vocabulary the corpus actually uses. An
+# analyst says a server "leaks", "gets stripped", or "is downgraded"; the RFC and
+# rubric text says "exposed", "suppression", or "downgrade". Without this the
+# out-of-vocabulary guard scored perfectly legitimate questions as unanswerable
+# purely on wording. Mapping is deliberately conservative: each entry points at
+# a term the corpus genuinely contains, so a question that is really about
+# something the evidence does not cover still retrieves nothing and still
+# refuses.
+_ANALYST_SYNONYMS = {
+    "leak": "exposed",
+    "leaks": "exposed",
+    "leaked": "exposed",
+    "leaking": "exposed",
+    "stripped": "stripping",
+    "strip": "stripping",
+    "strips": "stripping",
+    "downgrade": "downgrade",
+    "downgraded": "downgrade",
+    "downgrades": "downgrade",
+    "weakest": "weak",
+    "weakest": "weak",
+    "hop": "server",
+    "hops": "server",
+    "exfiltrate": "exposed",
+    "plaintext": "plaintext",
+    "cleartext": "plaintext",
+}
+
+
 def _tokenize(text: str) -> List[str]:
-    return [t for t in _TOKEN.findall(text.lower()) if t not in _STOP and len(t) > 1]
+    tokens = [t for t in _TOKEN.findall(text.lower()) if t not in _STOP and len(t) > 1]
+    return [_ANALYST_SYNONYMS.get(t, t) for t in tokens]
 
 
 class Span:
@@ -376,6 +412,15 @@ class Retriever:
                 self._df[t] += 1
         self._avg = (sum(self._len) / len(self._len)) if self._len else 1.0
         self._n = len(spans)
+        # Observed spans come from the capture actually under analysis. When an
+        # analyst asks "does THIS capture show X", that evidence must outrank
+        # generic standards text that merely mentions X, otherwise the model
+        # sees a wall of RFC text, concludes the question is unanswerable, and
+        # refuses an answer the capture does support.
+        self._observed = [
+            1.0 if getattr(s, "provenance", None) == OBSERVED else 0.0
+            for s in spans
+        ]
 
     def _idf(self, term: str) -> float:
         df = self._df.get(term, 0)
@@ -395,7 +440,7 @@ class Retriever:
                 continue
             denom = f + _K1 * (1 - _B + _B * length / self._avg)
             total += self._idf(term) * (f * (_K1 + 1)) / (denom or 1.0)
-        return total
+        return total * (1.0 + _OBSERVED_PRIOR * self._observed[span_idx])
 
     def oov_ratio(self, query: str) -> float:
         """
