@@ -7,3 +7,5 @@ pytest>=8.0.0
 pymongo>=4.8.0
 dnspython>=2.6.0
 groq>=1.7.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.9
