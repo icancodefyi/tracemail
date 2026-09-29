@@ -9,7 +9,7 @@ import {
   HardDrive,
   ArrowRight,
   FolderOpen,
-  Sparkles,
+  PlayCircle,
   FileCode,
   FileCheck,
 } from "lucide-react";
@@ -156,7 +156,7 @@ export default function IngestPage() {
                 disabled={isUploading || pipelineRunning}
                 className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-2.5 text-xs font-bold text-blue-700 shadow-xs hover:bg-blue-100 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <Sparkles className="h-4 w-4 text-blue-600" />
+                <PlayCircle className="h-4 w-4 text-blue-600" />
                 Try with a Sample Capture
               </button>
 

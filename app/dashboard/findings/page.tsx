@@ -8,11 +8,14 @@ import {
   ChevronRight,
   CheckCircle2,
   Filter,
+  FileText,
 } from "lucide-react";
 import { useDashboard, Severity } from "@/components/dashboard/DashboardContext";
 import { EvidenceDrawer } from "@/components/dashboard/EvidenceDrawer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { RuleChip } from "@/components/ui/RuleChip";
+import { AiInsightModal, AiInsightData } from "@/components/ui/AiInsightModal";
+import { getFindingInsight } from "@/components/ui/ai-insights-data";
 
 export default function FindingsPage() {
   const { findings, selectedFinding, setSelectedFinding, activeSession, loadSampleCapture } =
@@ -21,6 +24,7 @@ export default function FindingsPage() {
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"severity" | "cvss" | "confidence">("severity");
+  const [activeAiInsight, setActiveAiInsight] = useState<AiInsightData | null>(null);
 
   if (!activeSession) {
     return (
@@ -132,12 +136,22 @@ export default function FindingsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {sortedFindings.length > 0 && (
+            <button
+              onClick={() => setActiveAiInsight(getFindingInsight(sortedFindings[0]))}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Executive Briefing</span>
+            </button>
+          )}
+
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
           >
             <Download className="h-4 w-4" />
-            Export CSV Evidence
+            <span>Export CSV Evidence</span>
           </button>
           <Link
             href="/dashboard/graph"
@@ -209,6 +223,7 @@ export default function FindingsPage() {
                 <th className="py-3 px-4">Target Hop / Host</th>
                 <th className="py-3 px-3 text-center">CVSS</th>
                 <th className="py-3 px-4 text-right">Wire Offset</th>
+                <th className="py-3 px-3 text-center">AI Insight</th>
                 <th className="py-3 px-3"></th>
               </tr>
             </thead>
@@ -274,6 +289,23 @@ export default function FindingsPage() {
                     {finding.provenance.byteOffset}
                   </td>
 
+                  {/* Direct AI Insight Trigger */}
+                  <td
+                    className="py-3.5 px-3 text-center whitespace-nowrap"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveAiInsight(getFindingInsight(finding));
+                    }}
+                  >
+                    <button
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-700 transition-colors cursor-pointer"
+                      title="Explain this finding in human language"
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>Explain</span>
+                    </button>
+                  </td>
+
                   {/* Arrow */}
                   <td className="py-3.5 px-3 text-right">
                     <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all inline" />
@@ -289,6 +321,13 @@ export default function FindingsPage() {
       <EvidenceDrawer
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}
+      />
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={!!activeAiInsight}
+        onClose={() => setActiveAiInsight(null)}
+        data={activeAiInsight}
       />
     </div>
   );

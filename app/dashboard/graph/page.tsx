@@ -6,10 +6,13 @@ import {
   Network,
   AlertTriangle,
   ArrowRight,
+  FileText,
 } from "lucide-react";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TriStateChip } from "@/components/ui/TriStateChip";
+import { AiInsightModal, AiInsightData } from "@/components/ui/AiInsightModal";
+import { HOP_INSIGHTS } from "@/components/ui/ai-insights-data";
 
 interface HopData {
   id: string;
@@ -32,6 +35,7 @@ interface HopData {
 export default function DeliveryGraphPage() {
   const { activeSession, loadSampleCapture } = useDashboard();
   const [selectedHopId, setSelectedHopId] = useState<string>("hop-2");
+  const [activeHopInsight, setActiveHopInsight] = useState<AiInsightData | null>(null);
 
   if (!activeSession) {
     return (
@@ -151,16 +155,26 @@ export default function DeliveryGraphPage() {
       </div>
 
       {/* 10.3 Plain-English Banner above the Graph */}
-      <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 flex items-start gap-3 shadow-xs">
-        <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-        <div className="text-xs">
-          <span className="font-bold text-rose-900 block text-sm">
-            The weakest link in this delivery chain is Hop 2 (relay-gw.partner.net)
-          </span>
-          <p className="text-rose-800 mt-0.5 leading-relaxed">
-            In packet #142, an adversary intercepted the 250-STARTTLS advertisement and stripped it. While your internal gateway maintains Grade A- security, <strong>17.4% of corporate messages transit in unencrypted cleartext</strong> through Hop 2.
-          </p>
+      <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <span className="font-bold text-rose-900 block text-sm">
+              The weakest link in this delivery chain is Hop 2 (relay-gw.partner.net)
+            </span>
+            <p className="text-rose-800 mt-0.5 leading-relaxed">
+              In packet #142, an adversary intercepted the 250-STARTTLS advertisement and stripped it. While your internal gateway maintains Grade A- security, <strong>17.4% of corporate messages transit in unencrypted cleartext</strong> through Hop 2.
+            </p>
+          </div>
         </div>
+
+        <button
+          onClick={() => setActiveHopInsight(HOP_INSIGHTS["hop-2"])}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-rose-700 transition-colors shadow-xs shrink-0 cursor-pointer"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span>Hop 2 Risk Analysis</span>
+        </button>
       </div>
 
       {/* 10.1 The 4-Hop Chain Interactive Topology */}
@@ -361,7 +375,16 @@ export default function DeliveryGraphPage() {
                 {selectedHop.name}
               </h3>
             </div>
-            <TriStateChip state={selectedHop.verdict} size="sm" />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveHopInsight(HOP_INSIGHTS[selectedHop.id])}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-50 border border-blue-200 px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-100 cursor-pointer"
+              >
+                <FileText className="h-3 w-3" />
+                <span>Hop Analysis</span>
+              </button>
+              <TriStateChip state={selectedHop.verdict} size="sm" />
+            </div>
           </div>
 
           <div className="space-y-3 text-xs">
@@ -426,6 +449,13 @@ export default function DeliveryGraphPage() {
           )}
         </div>
       </div>
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={!!activeHopInsight}
+        onClose={() => setActiveHopInsight(null)}
+        data={activeHopInsight}
+      />
     </div>
   );
 }

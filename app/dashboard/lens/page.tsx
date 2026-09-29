@@ -1,18 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   Crosshair,
   AlertTriangle,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { AiInsightModal, AiInsightData } from "@/components/ui/AiInsightModal";
+import { LENS_INSIGHTS } from "@/components/ui/ai-insights-data";
 
 export default function LensPage() {
   const { activeSession, loadSampleCapture } = useDashboard();
+  const [activeInsight, setActiveInsight] = useState<AiInsightData | null>(null);
 
   if (!activeSession) {
     return (
@@ -76,17 +80,27 @@ export default function LensPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
-          <Crosshair className="h-3.5 w-3.5 text-slate-600" />
-          Predictive Attack Lens
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+            <Crosshair className="h-3.5 w-3.5 text-slate-600" />
+            Predictive Attack Lens
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+            Attack Lens & Next-Step Threat Forecasting
+          </h1>
+          <p className="mt-0.5 text-sm text-slate-600">
+            &quot;What&apos;s most likely next, based on what we see&quot; — mathematically derived extrapolation from observed protocol vulnerabilities.
+          </p>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-heading">
-          Attack Lens & Next-Step Threat Forecasting
-        </h1>
-        <p className="mt-1 text-sm text-body">
-          &quot;What&apos;s most likely next, based on what we see&quot; — mathematically derived extrapolation from observed protocol vulnerabilities.
-        </p>
+
+        <button
+          onClick={() => setActiveInsight(LENS_INSIGHTS["FC-01"])}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer shrink-0"
+        >
+          <FileText className="h-4 w-4" />
+          <span>Threat Model Summary</span>
+        </button>
       </div>
 
       {/* Non-Dismissible Forecast Banner (Strict FR-40 Requirement) */}
@@ -102,32 +116,42 @@ export default function LensPage() {
         {forecasts.map((fc) => (
           <div
             key={fc.id}
-            className="rounded-3xl border border-border bg-white p-6 shadow-xs space-y-4"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4"
           >
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-border/60 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-slate-400">
                     {fc.id}
                   </span>
-                  <h3 className="text-base font-bold text-heading">
+                  <h3 className="text-base font-bold text-slate-900">
                     {fc.attackClass}
                   </h3>
                 </div>
-                <div className="text-xs text-muted mt-0.5">
+                <div className="text-xs text-slate-500 mt-0.5">
                   Confidence: <strong className="text-slate-800">{fc.confidence}</strong>
                 </div>
               </div>
 
-              <span
-                className={`rounded-xl px-3 py-1 text-xs font-extrabold tracking-wider uppercase ${
-                  fc.likelihood === "HIGH"
-                    ? "bg-red-100 text-red-700 border border-red-300"
-                    : "bg-amber-100 text-amber-700 border border-amber-300"
-                }`}
-              >
-                {fc.likelihood} LIKELIHOOD
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveInsight(LENS_INSIGHTS[fc.id] || LENS_INSIGHTS["FC-01"])}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Threat Analysis</span>
+                </button>
+
+                <span
+                  className={`rounded-xl px-3 py-1.5 text-xs font-extrabold tracking-wider uppercase ${
+                    fc.likelihood === "HIGH"
+                      ? "bg-rose-100 text-rose-700 border border-rose-300"
+                      : "bg-amber-100 text-amber-700 border border-amber-300"
+                  }`}
+                >
+                  {fc.likelihood} LIKELIHOOD
+                </span>
+              </div>
             </div>
 
             <p className="text-xs text-slate-700 leading-relaxed">
@@ -135,7 +159,7 @@ export default function LensPage() {
             </p>
 
             {/* Drivers & Evidence Links */}
-            <div className="rounded-2xl border border-border bg-surface-soft p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                   Driving Observed Wire Findings:
@@ -145,9 +169,9 @@ export default function LensPage() {
                     <Link
                       key={d.id}
                       href={`/dashboard/findings?id=${d.ruleId}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-border px-2.5 py-1 text-xs font-semibold text-slate-800 hover:border-primary hover:text-primary transition-colors shadow-xs"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-800 hover:border-blue-500 hover:text-blue-600 transition-colors shadow-xs"
                     >
-                      <span className="font-mono text-primary font-bold">{d.ruleId}</span>
+                      <span className="font-mono text-blue-600 font-bold">{d.ruleId}</span>
                       <span>{d.title}</span>
                       <ExternalLink className="h-3 w-3 text-slate-400" />
                     </Link>
@@ -156,13 +180,20 @@ export default function LensPage() {
               </div>
 
               <div className="text-right shrink-0">
-                <span className="text-[11px] text-muted block">Projected Impact:</span>
-                <span className="text-xs font-semibold text-red-600">{fc.impact}</span>
+                <span className="text-[11px] text-slate-400 block">Projected Impact:</span>
+                <span className="text-xs font-semibold text-rose-600">{fc.impact}</span>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={!!activeInsight}
+        onClose={() => setActiveInsight(null)}
+        data={activeInsight}
+      />
     </div>
   );
 }

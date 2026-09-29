@@ -11,7 +11,7 @@ import {
   Search,
   FileText,
   PlaySquare,
-  Sparkles,
+  Bot,
   Crosshair,
   Fingerprint,
   ChevronLeft,
@@ -93,7 +93,7 @@ export function DashboardSidebar() {
     {
       label: "Ask RAG Assistant",
       href: "/dashboard/ask",
-      icon: Sparkles,
+      icon: Bot,
       badge: "RAG",
     },
   ];

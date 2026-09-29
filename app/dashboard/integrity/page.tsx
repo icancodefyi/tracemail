@@ -9,8 +9,12 @@ import {
   ShieldAlert,
   Copy,
   FolderTree,
+  FileText,
 } from "lucide-react";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { AiInsightModal } from "@/components/ui/AiInsightModal";
+import { INTEGRITY_CHAIN_INSIGHT } from "@/components/ui/ai-insights-data";
 
 interface ManifestNode {
   path: string;
@@ -21,13 +25,12 @@ interface ManifestNode {
   status: "VERIFIED" | "TAMPERED" | "PENDING";
 }
 
-import { EmptyState } from "@/components/ui/EmptyState";
-
 export default function IntegrityPage() {
   const { activeSession, loadSampleCapture } = useDashboard();
   const [verifying, setVerifying] = useState(false);
   const [simulateTamper, setSimulateTamper] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   if (!activeSession) {
     return (
@@ -101,63 +104,71 @@ export default function IntegrityPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
             <Fingerprint className="h-3.5 w-3.5 text-slate-600" />
             Cryptographic Proof Chain
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-heading">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
             Tamper-Proof Integrity Manifest
           </h1>
-          <p className="mt-1 text-sm text-body">
+          <p className="mt-0.5 text-sm text-slate-600">
             Verifies that capture bytes, scoring rule definitions, and report artifacts have not drifted or been tampered with.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer shadow-xs">
+          <button
+            onClick={() => setIsAiModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Chain of Custody Analysis</span>
+          </button>
+
+          <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 cursor-pointer shadow-xs">
             <input
               type="checkbox"
               checked={simulateTamper}
               onChange={(e) => setSimulateTamper(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+              className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
             />
-            Simulate 1-Bit Capture Tamper
+            <span>Simulate 1-Bit Capture Tamper</span>
           </label>
 
           <button
             onClick={handleVerify}
             disabled={verifying}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`h-4 w-4 ${verifying ? "animate-spin" : ""}`} />
-            {verifying ? "Re-walking Hashes..." : "Re-Verify Integrity Chain"}
+            <span>{verifying ? "Re-walking Hashes..." : "Re-Verify Chain"}</span>
           </button>
         </div>
       </div>
 
       {/* Tamper Alert Banner (if simulated) */}
       {simulateTamper && (
-        <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-4 text-xs font-bold text-red-900 flex items-center justify-between animate-pulse">
+        <div className="rounded-2xl border-2 border-rose-500 bg-rose-50 p-4 text-xs font-bold text-rose-900 flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-2.5">
-            <ShieldAlert className="h-5 w-5 text-red-600 shrink-0" />
+            <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0" />
             <span>
               INTEGRITY VIOLATION DETECTED: Hash mismatch detected on node &apos;corpus/scenarios/{activeSession.filename}&apos;. Audit report seal revoked.
             </span>
           </div>
-          <span className="font-mono text-red-700">EXIT STATUS: 1 (FAILED)</span>
+          <span className="font-mono text-rose-700 font-black">EXIT STATUS: 1 (FAILED)</span>
         </div>
       )}
 
       {/* Manifest Nodes Table */}
-      <div className="rounded-3xl border border-border bg-white p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-border/60 pb-3">
-          <h3 className="text-base font-bold text-heading flex items-center gap-2">
-            <FolderTree className="h-4 w-4 text-primary" />
-            Signed Artifact Manifest (MANIFEST.sha256)
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <FolderTree className="h-4 w-4 text-blue-600" />
+            <span>Signed Artifact Manifest (MANIFEST.sha256)</span>
           </h3>
-          <span className="font-mono text-xs text-muted">
+          <span className="font-mono text-xs text-slate-400">
             Package: v1.4.0-sih · Alg: SHA-256
           </span>
         </div>
@@ -168,8 +179,8 @@ export default function IntegrityPage() {
               key={idx}
               className={`rounded-2xl border p-4 transition-all ${
                 node.status === "TAMPERED"
-                  ? "border-red-300 bg-red-50/40"
-                  : "border-border bg-surface-soft/40 hover:bg-surface-soft"
+                  ? "border-rose-300 bg-rose-50/40"
+                  : "border-slate-200 bg-slate-50/40 hover:bg-slate-50"
               }`}
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -177,13 +188,13 @@ export default function IntegrityPage() {
                   {node.status === "VERIFIED" ? (
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
                   ) : (
-                    <XCircle className="h-5 w-5 text-red-600 shrink-0 animate-bounce" />
+                    <XCircle className="h-5 w-5 text-rose-600 shrink-0 animate-bounce" />
                   )}
                   <div>
                     <div className="font-mono text-xs font-bold text-slate-900">
                       {node.path}
                     </div>
-                    <div className="text-[11px] text-muted">
+                    <div className="text-[11px] text-slate-500">
                       Type: <strong className="text-slate-700">{node.type}</strong> · Size: {node.size}
                     </div>
                   </div>
@@ -194,7 +205,7 @@ export default function IntegrityPage() {
                     className={`rounded-md px-2.5 py-0.5 text-xs font-extrabold uppercase ${
                       node.status === "VERIFIED"
                         ? "bg-emerald-100 text-emerald-800"
-                        : "bg-red-600 text-white"
+                        : "bg-rose-600 text-white"
                     }`}
                   >
                     {node.status}
@@ -203,14 +214,14 @@ export default function IntegrityPage() {
               </div>
 
               {/* Hash Comparison */}
-              <div className="mt-3 pt-3 border-t border-border/60 font-mono text-[11px] space-y-1">
+              <div className="mt-3 pt-3 border-t border-slate-200 font-mono text-[11px] space-y-1">
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="truncate pr-2">
-                    Actual: <strong className={node.status === "TAMPERED" ? "text-red-600" : "text-slate-800"}>{node.actualHash}</strong>
+                    Actual: <strong className={node.status === "TAMPERED" ? "text-rose-600 font-black" : "text-slate-800"}>{node.actualHash}</strong>
                   </span>
                   <button
                     onClick={() => copyHash(node.actualHash, idx)}
-                    className="text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                    className="text-slate-400 hover:text-slate-700 transition-colors shrink-0 cursor-pointer"
                     title="Copy Hash"
                   >
                     {copiedIndex === idx ? (
@@ -225,6 +236,13 @@ export default function IntegrityPage() {
           ))}
         </div>
       </div>
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        data={INTEGRITY_CHAIN_INSIGHT}
+      />
     </div>
   );
 }

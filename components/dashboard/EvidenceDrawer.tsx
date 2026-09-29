@@ -10,10 +10,13 @@ import {
   PlaySquare,
   HelpCircle,
   ShieldAlert,
+  FileText,
 } from "lucide-react";
 import { Finding } from "./DashboardContext";
 import { RuleChip } from "@/components/ui/RuleChip";
 import { TriStateChip } from "@/components/ui/TriStateChip";
+import { AiInsightModal } from "@/components/ui/AiInsightModal";
+import { getFindingInsight } from "@/components/ui/ai-insights-data";
 
 interface EvidenceDrawerProps {
   finding: Finding | null;
@@ -22,6 +25,7 @@ interface EvidenceDrawerProps {
 
 export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
   const [copiedHash, setCopiedHash] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -66,6 +70,8 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
     return "Could occur during maintenance windows or network re-routing when mail flows transit temporary staging relays.";
   };
 
+  const findingAiInsight = getFindingInsight(finding);
+
   return (
     <>
       {/* Backdrop */}
@@ -100,13 +106,23 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
             <TriStateChip state={finding.state} size="sm" />
           </div>
 
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
-            aria-label="Close evidence drawer"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAiModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Analysis</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+              aria-label="Close evidence drawer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body scroll area */}
@@ -126,9 +142,18 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
 
           {/* Remediation Action Card */}
           <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 space-y-1.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
-              <ShieldAlert className="h-4 w-4 text-blue-600" />
-              <span>Recommended Operator Action:</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
+                <ShieldAlert className="h-4 w-4 text-blue-600" />
+                <span>Recommended Operator Action:</span>
+              </div>
+              <button
+                onClick={() => setIsAiModalOpen(true)}
+                className="text-[11px] font-bold text-blue-700 hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <FileText className="h-3 w-3" />
+                <span>Explain Fix</span>
+              </button>
             </div>
             <p className="text-xs text-blue-800 leading-relaxed font-mono">
               {getRemediation(finding.ruleId)}
@@ -273,6 +298,13 @@ export function EvidenceDrawer({ finding, onClose }: EvidenceDrawerProps) {
           </button>
         </div>
       </div>
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        data={findingAiInsight}
+      />
     </>
   );
 }

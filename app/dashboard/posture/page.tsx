@@ -1,18 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
   ArrowRight,
+  FileText,
+  Info,
 } from "lucide-react";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
 import { ScoreDisplay } from "@/components/ui/ScoreDisplay";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TriStateChip } from "@/components/ui/TriStateChip";
+import { AiInsightModal, AiInsightData } from "@/components/ui/AiInsightModal";
+import {
+  POSTURE_SCORE_INSIGHT,
+  POSTURE_SUBSCORE_INSIGHTS,
+} from "@/components/ui/ai-insights-data";
 
 export default function PosturePage() {
   const { activeSession, loadSampleCapture } = useDashboard();
+  const [activeInsight, setActiveInsight] = useState<AiInsightData | null>(null);
 
   if (!activeSession) {
     return (
@@ -109,6 +117,14 @@ export default function PosturePage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setActiveInsight(POSTURE_SCORE_INSIGHT)}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Explain Score in Plain English</span>
+          </button>
+
           <Link
             href="/dashboard/findings"
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
@@ -137,7 +153,7 @@ export default function PosturePage() {
               6-Pillar Weighted Rubric Decomposition (Σ = 100%)
             </h3>
             <p className="text-[11px] text-slate-500">
-              Click any pillar to inspect the corresponding forensic rule findings.
+              Click any pillar to inspect forensic findings or click &quot;Plain English Insight&quot; for a human-readable explanation.
             </p>
           </div>
           <span className="font-mono text-xs font-bold text-slate-400">
@@ -151,54 +167,76 @@ export default function PosturePage() {
             const isMid = sub.score >= 60 && sub.score < 80;
 
             return (
-              <Link
+              <div
                 key={sub.id}
-                href={sub.link}
-                className="group rounded-xl border border-slate-200 p-4 transition-all hover:border-blue-400 hover:shadow-xs bg-slate-50/30"
+                className="group rounded-xl border border-slate-200 p-4 transition-all hover:border-blue-400 hover:shadow-xs bg-slate-50/30 flex flex-col justify-between"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                    {sub.name}
-                  </span>
-                  <span className="font-mono text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                    Weight {sub.weight}%
-                  </span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Link
+                      href={sub.link}
+                      className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors"
+                    >
+                      {sub.name}
+                    </Link>
+                    <span className="font-mono text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                      Weight {sub.weight}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="font-mono text-2xl font-black text-slate-900">
+                      {sub.score}
+                      <span className="text-xs font-normal text-slate-400">/100</span>
+                    </span>
+                    {sub.isUnobservable ? (
+                      <TriStateChip state="NOT-OBSERVABLE" size="sm" />
+                    ) : isHigh ? (
+                      <TriStateChip state="SECURE" size="sm" />
+                    ) : (
+                      <TriStateChip state="VULNERABLE" size="sm" />
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        sub.isUnobservable
+                          ? "bg-slate-400"
+                          : isHigh
+                          ? "bg-emerald-500"
+                          : isMid
+                          ? "bg-blue-500"
+                          : "bg-rose-500"
+                      }`}
+                      style={{ width: `${sub.score}%` }}
+                    />
+                  </div>
+
+                  <p className="mt-2 text-[11px] text-slate-500 leading-tight">
+                    {sub.detail}
+                  </p>
                 </div>
 
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="font-mono text-2xl font-black text-slate-900">
-                    {sub.score}
-                    <span className="text-xs font-normal text-slate-400">/100</span>
-                  </span>
-                  {sub.isUnobservable ? (
-                    <TriStateChip state="NOT-OBSERVABLE" size="sm" />
-                  ) : isHigh ? (
-                    <TriStateChip state="SECURE" size="sm" />
-                  ) : (
-                    <TriStateChip state="VULNERABLE" size="sm" />
-                  )}
-                </div>
+                {/* AI Insight trigger button on each card */}
+                <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between">
+                  <button
+                    onClick={() => setActiveInsight(POSTURE_SUBSCORE_INSIGHTS[sub.id])}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span>Plain English Insight</span>
+                  </button>
 
-                {/* Progress bar */}
-                <div className="h-1.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      sub.isUnobservable
-                        ? "bg-slate-400"
-                        : isHigh
-                        ? "bg-emerald-500"
-                        : isMid
-                        ? "bg-blue-500"
-                        : "bg-rose-500"
-                    }`}
-                    style={{ width: `${sub.score}%` }}
-                  />
+                  <Link
+                    href={sub.link}
+                    className="text-[11px] font-semibold text-slate-400 hover:text-slate-700"
+                  >
+                    View Findings →
+                  </Link>
                 </div>
-
-                <p className="mt-2 text-[11px] text-slate-500 leading-tight">
-                  {sub.detail}
-                </p>
-              </Link>
+              </div>
             );
           })}
         </div>
@@ -215,6 +253,14 @@ export default function PosturePage() {
               Raven explicitly declares what was knowable. <strong>{notObsPct}% NOT-OBSERVABLE is a feature, not a gap.</strong>
             </p>
           </div>
+
+          <button
+            onClick={() => setActiveInsight(POSTURE_SUBSCORE_INSIGHTS["x509"])}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            <Info className="h-3.5 w-3.5 text-blue-600" />
+            <span>Why NOT-OBSERVABLE Protects You</span>
+          </button>
         </div>
 
         {/* Stacked Bar */}
@@ -281,6 +327,13 @@ export default function PosturePage() {
           </span>
         </div>
       </div>
+
+      {/* AI Insight Modal */}
+      <AiInsightModal
+        isOpen={!!activeInsight}
+        onClose={() => setActiveInsight(null)}
+        data={activeInsight}
+      />
     </div>
   );
 }

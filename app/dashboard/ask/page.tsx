@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  Sparkles,
   Send,
   ExternalLink,
   Bot,
@@ -56,7 +55,7 @@ export default function AskPage() {
   if (!activeSession) {
     return (
       <EmptyState
-        icon={<Sparkles className="h-6 w-6 text-blue-600" />}
+        icon={<Bot className="h-6 w-6 text-blue-600" />}
         title="No Capture Loaded for Forensic Assistant"
         description="Ingest a packet capture to query the forensic assistant. Every answer is grounded and cited; questions the evidence cannot answer are refused."
         primaryAction={{
@@ -133,7 +132,7 @@ export default function AskPage() {
       {/* Header */}
       <div>
         <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
-          <Sparkles className="h-3.5 w-3.5 text-slate-600" />
+          <Bot className="h-3.5 w-3.5 text-slate-600" />
           RAG Forensic Assistant
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight text-heading">
