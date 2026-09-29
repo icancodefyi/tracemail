@@ -103,7 +103,11 @@ const REPLAY_EVENTS: PacketEvent[] = [
   },
 ];
 
+import { useDashboard } from "@/components/dashboard/DashboardContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+
 export default function ReplayPage() {
+  const { activeSession, loadSampleCapture } = useDashboard();
   const [currentStep, setCurrentStep] = useState<number>(4); // Default to the critical moment
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [speed, setSpeed] = useState<number>(1);
@@ -123,6 +127,25 @@ export default function ReplayPage() {
     }
     return () => clearInterval(timer);
   }, [isPlaying, speed]);
+
+  if (!activeSession) {
+    return (
+      <EmptyState
+        icon={<PlaySquare className="h-6 w-6 text-blue-600" />}
+        title="No Packet Trace to Replay"
+        description="Ingest a packet capture or try a sample scenario to replay frame-by-frame wire interactions and inspect the exact downgrade moments."
+        primaryAction={{
+          label: "Go to Ingestion",
+          href: "/dashboard",
+        }}
+        secondaryAction={{
+          label: "Try Sample Capture (1-Click)",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Visual packet inspection with dual Hex / ASCII streams"
+      />
+    );
+  }
 
   const activeEvent = REPLAY_EVENTS.find((e) => e.step === currentStep) || REPLAY_EVENTS[3];
 

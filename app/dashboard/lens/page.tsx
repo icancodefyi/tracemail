@@ -8,7 +8,30 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+import { useDashboard } from "@/components/dashboard/DashboardContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+
 export default function LensPage() {
+  const { activeSession, loadSampleCapture } = useDashboard();
+
+  if (!activeSession) {
+    return (
+      <EmptyState
+        icon={<Crosshair className="h-6 w-6 text-blue-600" />}
+        title="No Capture Available for Attack Modeling"
+        description="Ingest a packet capture to evaluate adversarial threat scenarios, BGP hijack vulnerabilities, and downgrade attack forecast models."
+        primaryAction={{
+          label: "Go to Ingestion",
+          href: "/dashboard",
+        }}
+        secondaryAction={{
+          label: "Try Sample Capture (1-Click)",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Predictive exposure modeling grounded in RFC specifications"
+      />
+    );
+  }
 
   const forecasts = [
     {

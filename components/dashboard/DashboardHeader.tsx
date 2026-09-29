@@ -51,12 +51,16 @@ export function DashboardHeader() {
             onClick={() => setSessionDropdownOpen(!sessionDropdownOpen)}
             className="flex items-center gap-2.5 rounded-xl border border-border bg-surface-soft px-3.5 py-2 text-sm font-semibold text-heading transition-all hover:border-slate-300 hover:bg-white shadow-xs"
           >
-            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span
+              className={`h-2 w-2 rounded-full ${
+                activeSession ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+              }`}
+            />
             <span className="font-mono text-xs text-slate-500 uppercase">
               Capture:
             </span>
             <span className="max-w-[200px] truncate text-xs font-bold text-slate-900 md:max-w-[280px]">
-              {activeSession.filename}
+              {activeSession ? activeSession.filename : "No Capture Loaded"}
             </span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
           </button>
@@ -64,45 +68,60 @@ export function DashboardHeader() {
           {sessionDropdownOpen && (
             <div className="absolute left-0 top-full mt-2 w-80 md:w-96 rounded-2xl border border-border bg-white p-2 shadow-2xl z-50">
               <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Select Forensic Capture Scenario
+                Active Capture Sessions
               </div>
-              <div className="space-y-1">
-                {sessions.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      switchSession(s.id);
-                      setSessionDropdownOpen(false);
-                    }}
-                    className={`w-full text-left rounded-xl p-2.5 transition-colors flex items-start justify-between ${
-                      s.id === activeSession.id
-                        ? "bg-primary-soft/60 border border-primary/30"
-                        : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-heading">
-                        {s.name}
-                      </div>
-                      <div className="font-mono text-[11px] text-muted">
-                        {s.filename} · {s.flows.toLocaleString()} flows
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          s.score >= 80
-                            ? "bg-emerald-50 text-emerald-700"
-                            : s.score >= 60
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-red-50 text-red-700"
-                        }`}
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {sessions.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500">
+                    No packet captures ingested yet.
+                    <div className="mt-1">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setSessionDropdownOpen(false)}
+                        className="text-blue-600 hover:underline font-bold"
                       >
-                        {s.grade} ({s.score})
-                      </span>
+                        Ingest a PCAP →
+                      </Link>
                     </div>
-                  </button>
-                ))}
+                  </div>
+                ) : (
+                  sessions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        switchSession(s.id);
+                        setSessionDropdownOpen(false);
+                      }}
+                      className={`w-full text-left rounded-xl p-2.5 transition-colors flex items-start justify-between ${
+                        s.id === activeSession?.id
+                          ? "bg-blue-50 border border-blue-200"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-bold text-heading">
+                          {s.name}
+                        </div>
+                        <div className="font-mono text-[11px] text-muted">
+                          {s.filename} · {s.flows.toLocaleString()} flows
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            s.score >= 80
+                              ? "bg-emerald-50 text-emerald-700"
+                              : s.score >= 60
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-red-50 text-red-700"
+                          }`}
+                        >
+                          {s.grade} ({s.score})
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
               <div className="mt-2 pt-2 border-t border-border/50 px-2">
                 <Link

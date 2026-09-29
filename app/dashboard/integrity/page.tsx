@@ -21,11 +21,32 @@ interface ManifestNode {
   status: "VERIFIED" | "TAMPERED" | "PENDING";
 }
 
+import { EmptyState } from "@/components/ui/EmptyState";
+
 export default function IntegrityPage() {
-  const { activeSession } = useDashboard();
+  const { activeSession, loadSampleCapture } = useDashboard();
   const [verifying, setVerifying] = useState(false);
   const [simulateTamper, setSimulateTamper] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  if (!activeSession) {
+    return (
+      <EmptyState
+        icon={<Fingerprint className="h-6 w-6 text-blue-600" />}
+        title="No Integrity Manifest Available"
+        description="Ingest a packet capture to generate verifiable SHA-256 cryptographic manifest trees across raw PCAPs, rule engines, and signed evidence stores."
+        primaryAction={{
+          label: "Go to Ingestion",
+          href: "/dashboard",
+        }}
+        secondaryAction={{
+          label: "Try Sample Capture (1-Click)",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Cryptographic non-repudiation with court-grade hash verification"
+      />
+    );
+  }
 
   const manifestNodes: ManifestNode[] = [
     {

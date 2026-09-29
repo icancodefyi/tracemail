@@ -31,52 +31,52 @@ export function DashboardSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [modulesExpanded, setModulesExpanded] = useState(true);
 
-  // Grouped navigation items per docs/12-ui-spec.md
-  const coreNavItems = [
+  // Golden Path: 5 sequential stops per user workflow
+  const goldenPathItems = [
     {
-      label: "Ingest & Pipeline",
+      step: "1",
+      label: "Ingest PCAP",
       href: "/dashboard",
       icon: LayoutDashboard,
-      badge: "CORE",
+      badge: "START",
     },
     {
-      label: "Posture Score",
+      step: "2",
+      label: "Posture Answer",
       href: "/dashboard/posture",
       icon: ShieldCheck,
-      badge: "CORE",
+      badge: "SCORE",
     },
     {
+      step: "3",
+      label: "Forensic Findings",
+      href: "/dashboard/findings",
+      icon: Search,
+      badge: "FIX",
+    },
+    {
+      step: "4",
       label: "Delivery Graph",
       href: "/dashboard/graph",
       icon: Network,
-      badge: "CORE",
+      badge: "HOPS",
     },
     {
-      label: "Findings Explorer",
-      href: "/dashboard/findings",
-      icon: Search,
-      badge: "CORE",
-    },
-    {
-      label: "Reports & Playbooks",
+      step: "5",
+      label: "Audit Reports",
       href: "/dashboard/reports",
       icon: FileText,
-      badge: "CORE",
+      badge: "PROOF",
     },
   ];
 
-  const stretchNavItems = [
+  // Advanced items: Replay, Lens, Integrity, Ask live behind advanced
+  const advancedNavItems = [
     {
       label: "Incident Replay",
       href: "/dashboard/replay",
       icon: PlaySquare,
-      badge: "LIVE",
-    },
-    {
-      label: "Ask RAG AI",
-      href: "/dashboard/ask",
-      icon: Sparkles,
-      badge: "RAG",
+      badge: "FRAME",
     },
     {
       label: "Attack Lens",
@@ -88,7 +88,13 @@ export function DashboardSidebar() {
       label: "Integrity Manifest",
       href: "/dashboard/integrity",
       icon: Fingerprint,
-      badge: "SEALED",
+      badge: "SHA256",
+    },
+    {
+      label: "Ask RAG Assistant",
+      href: "/dashboard/ask",
+      icon: Sparkles,
+      badge: "RAG",
     },
   ];
 
@@ -142,75 +148,33 @@ export function DashboardSidebar() {
 
       {/* Navigation Links Scroll Container */}
       <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-6">
-        {/* Core Workspace Section */}
+        {/* Golden Path Section (5 Steps) */}
         <div>
           {!collapsed && (
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-              Core Modules (FR-1..37)
+            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Audit Workflow (5 Stops)
             </div>
           )}
 
           <nav className="space-y-1">
-            {coreNavItems.map((item) => {
+            {goldenPathItems.map((item) => {
               const active = isActive(item.href);
               const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
+                  className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all ${
                     active
-                      ? "bg-primary-soft/60 text-primary font-semibold shadow-xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
                   <Icon
-                    className={`h-5 w-5 shrink-0 transition-colors ${
+                    className={`h-4 w-4 shrink-0 transition-colors ${
                       active
-                        ? "text-primary"
-                        : "text-slate-400 group-hover:text-slate-700"
-                    }`}
-                  />
-                  {!collapsed && (
-                    <span className="truncate flex-1">{item.label}</span>
-                  )}
-                  {!collapsed && active && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Forensic & Advanced Section */}
-        <div>
-          {!collapsed && (
-            <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-              Advanced Forensics (FR-38..41)
-            </div>
-          )}
-
-          <nav className="space-y-1">
-            {stretchNavItems.map((item) => {
-              const active = isActive(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
-                    active
-                      ? "bg-primary-soft/60 text-primary font-semibold shadow-xs"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <Icon
-                    className={`h-5 w-5 shrink-0 transition-colors ${
-                      active
-                        ? "text-primary"
+                        ? "text-blue-600"
                         : "text-slate-400 group-hover:text-slate-700"
                     }`}
                   />
@@ -218,9 +182,9 @@ export function DashboardSidebar() {
                     <>
                       <span className="truncate flex-1">{item.label}</span>
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                        className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded ${
                           active
-                            ? "bg-primary text-white"
+                            ? "bg-blue-600 text-white"
                             : "bg-slate-100 text-slate-500"
                         }`}
                       >
@@ -232,6 +196,67 @@ export function DashboardSidebar() {
               );
             })}
           </nav>
+        </div>
+
+        {/* Advanced Section: Replay, Lens, Integrity, Ask live behind 'advanced' */}
+        <div className="border-t border-slate-100 pt-3">
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={() => setModulesExpanded(!modulesExpanded)}
+              className="flex w-full items-center justify-between px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+            >
+              <span>Advanced Forensics (4)</span>
+              {modulesExpanded ? (
+                <Minus className="h-3 w-3" />
+              ) : (
+                <Plus className="h-3 w-3" />
+              )}
+            </button>
+          )}
+
+          {(modulesExpanded || collapsed) && (
+            <nav className="space-y-1 mt-1">
+              {advancedNavItems.map((item) => {
+                const active = isActive(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all ${
+                      active
+                        ? "bg-slate-900 text-white font-bold shadow-xs"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon
+                      className={`h-4 w-4 shrink-0 transition-colors ${
+                        active
+                          ? "text-white"
+                          : "text-slate-400 group-hover:text-slate-600"
+                      }`}
+                    />
+                    {!collapsed && (
+                      <>
+                        <span className="truncate flex-1">{item.label}</span>
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                            active
+                              ? "bg-slate-800 text-slate-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      </>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
         </div>
 
         {/* Expandable Module Tree (Like in sidebarinspo.png) */}

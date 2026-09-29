@@ -5,357 +5,425 @@ import Link from "next/link";
 import {
   Network,
   AlertTriangle,
-  ShieldAlert,
-  Layers,
+  ArrowRight,
 } from "lucide-react";
 import { useDashboard } from "@/components/dashboard/DashboardContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { TriStateChip } from "@/components/ui/TriStateChip";
+
+interface HopData {
+  id: string;
+  name: string;
+  hopNumber: number;
+  ip: string;
+  role: string;
+  grade: string;
+  score: number;
+  cipher: string;
+  tlsVersion: string;
+  certStatus: string;
+  policy: string;
+  verdict: "SECURE" | "VULNERABLE" | "NOT-OBSERVABLE";
+  trafficVolume: string;
+  isWeakest?: boolean;
+  narrative: string;
+}
 
 export default function DeliveryGraphPage() {
-  const { graphEdges, activeSession } = useDashboard();
-  const [selectedNode, setSelectedNode] = useState<string>("peer-weak-relay");
+  const { activeSession, loadSampleCapture } = useDashboard();
+  const [selectedHopId, setSelectedHopId] = useState<string>("hop-2");
 
-  const nodeDetails: Record<
-    string,
-    { title: string; subtitle: string; desc: string; stat: string; link?: string; alert?: boolean }
-  > = {
-    "peer-weak-relay": {
-      title: "Weakest Hop Alert: relay-gw.partner.net",
-      subtitle: "Hop 2 MITM Interception",
-      desc: "Attacker on Hop 2 stripped STARTTLS from downstream EHLO response. 890 sensitive corporate messages leaked in unencrypted cleartext across this edge.",
-      stat: "17.4% Outbound Leakage",
-      link: "/dashboard/findings?mx=relay-gw.partner.net",
-      alert: true,
+  if (!activeSession) {
+    return (
+      <EmptyState
+        icon={<Network className="h-6 w-6 text-blue-600" />}
+        title="No Delivery Chain Observable"
+        description="Ingest a packet capture to map the cross-hop transit topology and expose where encryption breaks across intermediate relays."
+        primaryAction={{
+          label: "Go to Ingestion",
+          href: "/dashboard",
+        }}
+        secondaryAction={{
+          label: "Try Multi-Hop Sample",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Hop-by-hop cryptographic sealing analysis"
+      />
+    );
+  }
+
+  const hops: Record<string, HopData> = {
+    "hop-1": {
+      id: "hop-1",
+      name: "mx1.corp.net",
+      hopNumber: 1,
+      ip: "198.51.100.10",
+      role: "Internal Enterprise Ingress",
+      grade: "Grade A-",
+      score: 88,
+      cipher: "TLS_AES_256_GCM_SHA384 (NIST Recommended)",
+      tlsVersion: "TLS 1.3 (Strict)",
+      certStatus: "Encrypted under TLS 1.3 (NOT-OBSERVABLE)",
+      policy: "MTA-STS: enforce · DANE TLSA: Valid",
+      verdict: "SECURE",
+      trafficVolume: "1,420 msgs (100% Ingress)",
+      narrative: "Internal perimeter gateway strictly accepts encrypted connections with modern AEAD cipher suites.",
     },
-    "peer-google": {
-      title: "Verified Peer: aspmx.l.google.com",
-      subtitle: "Google Workspace Ingress",
-      desc: "Mandatory TLS 1.3 negotiated with X25519 forward secrecy and valid SAN certificate chain. Zero downgrade anomalies observed.",
-      stat: "48.0% Verified Transit",
-      alert: false,
+    "hop-2": {
+      id: "hop-2",
+      name: "relay-gw.partner.net",
+      hopNumber: 2,
+      ip: "198.51.100.14",
+      role: "Partner Commercial Relay",
+      grade: "Grade E",
+      score: 42,
+      cipher: "NONE (Unencrypted Cleartext Payload)",
+      tlsVersion: "None (STARTTLS Stripped via MITM)",
+      certStatus: "No Certificate Presented (Cleartext)",
+      policy: "MTA-STS: None · DANE TLSA: Absent",
+      verdict: "VULNERABLE",
+      trafficVolume: "890 msgs (17.4% Leaked)",
+      isWeakest: true,
+      narrative: "Active adversary or misconfigured middlebox stripped the 250-STARTTLS keyword from downstream EHLO response, forcing sending MTA into unencrypted cleartext fallback.",
     },
-    "peer-msft": {
-      title: "Verified Peer: mail.protection.outlook.com",
-      subtitle: "Microsoft 365 Cloud Relay",
-      desc: "Modern TLS 1.3 with AES-256-GCM cipher suite and active MTA-STS DNS validation. Consistent cryptographic posture.",
-      stat: "24.0% Verified Transit",
-      alert: false,
+    "hop-3": {
+      id: "hop-3",
+      name: "aspmx.l.google.com",
+      hopNumber: 3,
+      ip: "142.250.150.27",
+      role: "Cloud Mailbox Egress (Google)",
+      grade: "Grade A+",
+      score: 98,
+      cipher: "TLS_CHACHA20_POLY1305_SHA256",
+      tlsVersion: "TLS 1.3 (Mandatory)",
+      certStatus: "GTS Root R1 (Valid, Unrevoked)",
+      policy: "MTA-STS: enforce · TLS-RPT Active",
+      verdict: "SECURE",
+      trafficVolume: "2,450 msgs (48% Volume)",
+      narrative: "Direct cloud peering endpoint enforcing forward-secret TLS with active reporting daemons.",
     },
-    "corp-mx1": {
-      title: "Internal Anchor: mx1.corp.net",
-      subtitle: "Primary Organization Gateway",
-      desc: "Central ingress MTA receiving traffic on Port 25. High internal posture score (88/100), but vulnerable downstream peer hops degrade total safety.",
-      stat: "100% Ingress Hub",
-      alert: false,
+    "hop-4": {
+      id: "hop-4",
+      name: "mail.protection.outlook.com",
+      hopNumber: 4,
+      ip: "52.101.68.1",
+      role: "Corporate Exchange Relay (M365)",
+      grade: "Grade A",
+      score: 92,
+      cipher: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+      tlsVersion: "TLS 1.2 / 1.3",
+      certStatus: "DigiCert Cloud CA (Valid)",
+      policy: "MTA-STS: enforce · DANE TLSA: Active",
+      verdict: "SECURE",
+      trafficVolume: "1,220 msgs (24% Volume)",
+      narrative: "Microsoft cloud boundary relay operating consistent cryptographic enforcement.",
     },
   };
 
-  const activeNodeInfo = nodeDetails[selectedNode] || nodeDetails["peer-weak-relay"];
+  const selectedHop = hops[selectedHopId] || hops["hop-2"];
 
   return (
-    <div className="space-y-8">
-      {/* Title & Concept Header */}
-      <div>
-        <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
-          <Network className="h-3.5 w-3.5 text-slate-600" />
-          Hop-by-Hop Transit Graph
-        </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-heading">
-          Delivery Topology & Weakest-Hop Exposure
-        </h1>
-        <p className="mt-1 text-sm text-body">
-          &quot;Your internal mail servers may be A-grade, but confidential messages leak across external peer transit hops.&quot;
-        </p>
-      </div>
-
-      {/* Main Delivery Graph Canvas */}
-      <div className="rounded-3xl border border-border bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-border/60 pb-4">
-          <div>
-            <h3 className="text-base font-bold text-heading">
-              Enterprise Transit Graph (Session: {activeSession.id} · {graphEdges.length} Active Edges)
-            </h3>
-            <p className="text-xs text-muted">
-              Interactive topology map. Edge thickness represents traffic density; edge color reflects peer transit hygiene.
-            </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-blue-700 mb-1.5">
+            <Network className="h-3 w-3 text-blue-600" />
+            The Differentiator · Stop 4 of 5
           </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-              <span className="h-3 w-3 rounded-full bg-emerald-500" /> TLS 1.3 Verified
-            </span>
-            <span className="flex items-center gap-1.5 text-blue-700 font-semibold">
-              <span className="h-3 w-3 rounded-full bg-blue-500" /> TLS 1.2 Encrypted
-            </span>
-            <span className="flex items-center gap-1.5 text-red-700 font-semibold">
-              <span className="h-3 w-3 rounded-full bg-red-500 animate-ping" />
-              Weakest Hop (Stripped Cleartext)
-            </span>
-          </div>
-        </div>
-
-        {/* SVG Interactive Topology Visualization */}
-        <div className="relative h-[480px] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-800">
-          {/* Subtle grid pattern */}
-          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
-
-          <svg className="h-full w-full select-none" viewBox="0 0 900 480">
-            {/* Center Origin Node: mx1.corp.net at (260, 240) */}
-            {/* Outbound peer edges */}
-
-            {/* Edge 1: mx1.corp.net -> Google (680, 100) */}
-            <line
-              x1="260"
-              y1="240"
-              x2="680"
-              y2="100"
-              stroke="#10b981"
-              strokeWidth="6"
-              strokeOpacity="0.8"
-            />
-            <text x="470" y="155" fill="#a7f3d0" fontSize="10" fontFamily="monospace" textAnchor="middle">
-              2,450 msgs (48%) TLS 1.3
-            </text>
-
-            {/* Edge 2: mx1.corp.net -> Outlook (720, 240) */}
-            <line
-              x1="260"
-              y1="240"
-              x2="720"
-              y2="240"
-              stroke="#10b981"
-              strokeWidth="4"
-              strokeOpacity="0.8"
-            />
-            <text x="490" y="230" fill="#a7f3d0" fontSize="10" fontFamily="monospace" textAnchor="middle">
-              1,220 msgs (24%) TLS 1.3
-            </text>
-
-            {/* Edge 3: WEAKEST HOP -> relay-gw.partner.net (680, 380) */}
-            <line
-              x1="260"
-              y1="240"
-              x2="680"
-              y2="380"
-              stroke="#ef4444"
-              strokeWidth="4.5"
-              strokeDasharray="6,4"
-              className="animate-pulse"
-            />
-            {/* Warning triangle in middle of weakest hop */}
-            <circle cx="470" cy="310" r="14" fill="#450a0a" stroke="#ef4444" strokeWidth="2" />
-            <text x="470" y="315" fill="#ef4444" fontSize="12" fontWeight="bold" textAnchor="middle">
-              ⚠️
-            </text>
-            <text x="470" y="335" fill="#f87171" fontSize="11" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-              890 msgs (17%) STRIPPED CLEARTEXT!
-            </text>
-
-            {/* NODES */}
-            {/* Center Enterprise Node */}
-            <g transform="translate(260, 240)" className="cursor-pointer" onClick={() => setSelectedNode("corp-mx1")}>
-              <circle r="44" fill="#0f172a" stroke={selectedNode === "corp-mx1" ? "#60a5fa" : "#38bdf8"} strokeWidth="3" />
-              <circle r="36" fill="#1e293b" />
-              <text y="-6" fill="#f8fafc" fontSize="12" fontWeight="bold" textAnchor="middle">
-                mx1.corp.net
-              </text>
-              <text y="12" fill="#38bdf8" fontSize="10" fontFamily="monospace" textAnchor="middle">
-                PRIMARY INGRESS
-              </text>
-              <text y="26" fill="#a7f3d0" fontSize="10" fontWeight="bold" textAnchor="middle">
-                Grade A- (88/100)
-              </text>
-            </g>
-
-            {/* Peer Node 1: Google */}
-            <g transform="translate(680, 100)" className="cursor-pointer" onClick={() => setSelectedNode("peer-google")}>
-              <circle r="36" fill="#064e3b" stroke={selectedNode === "peer-google" ? "#60a5fa" : "#10b981"} strokeWidth="2" />
-              <text y="-4" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">
-                aspmx.google
-              </text>
-              <text y="12" fill="#34d399" fontSize="10" fontWeight="bold" textAnchor="middle">
-                Grade A+ (98)
-              </text>
-            </g>
-
-            {/* Peer Node 2: Microsoft */}
-            <g transform="translate(720, 240)" className="cursor-pointer" onClick={() => setSelectedNode("peer-msft")}>
-              <circle r="36" fill="#064e3b" stroke={selectedNode === "peer-msft" ? "#60a5fa" : "#10b981"} strokeWidth="2" />
-              <text y="-4" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">
-                outlook.com
-              </text>
-              <text y="12" fill="#34d399" fontSize="10" fontWeight="bold" textAnchor="middle">
-                Grade A (92)
-              </text>
-            </g>
-
-            {/* Peer Node 3: WEAKEST HOP (relay-gw.partner.net) */}
-            <g
-              transform="translate(680, 380)"
-              className="cursor-pointer group"
-              onClick={() => setSelectedNode("peer-weak-relay")}
-            >
-              <circle r="46" fill="#450a0a" stroke={selectedNode === "peer-weak-relay" ? "#60a5fa" : "#ef4444"} strokeWidth="3" className="animate-pulse" />
-              <circle r="38" fill="#7f1d1d" />
-              <text y="-6" fill="#fecaca" fontSize="11" fontWeight="bold" textAnchor="middle">
-                relay-gw.partner
-              </text>
-              <text y="10" fill="#f87171" fontSize="10" fontWeight="bold" textAnchor="middle">
-                GRADE E (42/100)
-              </text>
-              <text y="24" fill="#ef4444" fontSize="9" fontWeight="bold" textAnchor="middle">
-                CRITICAL LEAK
-              </text>
-            </g>
-          </svg>
-
-          {/* Quick Node Details HUD overlay */}
-          <div className="absolute bottom-4 left-4 rounded-xl border border-slate-800 bg-slate-900/90 p-4 text-xs text-slate-300 backdrop-blur-md max-w-sm">
-            <div className="font-bold text-white flex items-center gap-2 mb-1">
-              {activeNodeInfo.alert ? (
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-              ) : (
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              )}
-              {activeNodeInfo.title}
-            </div>
-            <p className="text-slate-400 leading-relaxed">
-              {activeNodeInfo.desc}
-            </p>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="font-mono text-primary font-bold">{activeNodeInfo.stat}</span>
-              {activeNodeInfo.link && (
-                <Link
-                  href={activeNodeInfo.link}
-                  className="text-primary font-bold hover:underline flex items-center gap-1"
-                >
-                  Inspect Findings →
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Weakest-Hop Ranked List & Exposure Histogram */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Ranked Weakest Hop List (FR-26) */}
-        <div className="rounded-3xl border border-border bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-heading flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-red-500" />
-              Ranked Weakest-Hop Transit Peers
-            </h3>
-            <span className="text-xs font-mono text-muted">Prioritized by Risk</span>
-          </div>
-
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-red-200 bg-red-50/40 p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-mono font-bold text-slate-900 text-xs">
-                    1. relay-gw.partner.net (198.51.100.14)
-                  </div>
-                  <div className="text-xs text-red-700 font-medium mt-1">
-                    STARTTLS Stripped · RFC 3207 Violation · Zero MTA-STS
-                  </div>
-                </div>
-                <span className="rounded-lg bg-red-600 px-2.5 py-0.5 text-xs font-extrabold text-white">
-                  Grade E (42)
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-600 border-t border-red-200/60 pt-2">
-                <span>Volume: <strong>890 msgs (17.4% outbound)</strong></span>
-                <Link
-                  href="/dashboard/replay?finding=FIND-001"
-                  className="font-bold text-red-700 hover:underline"
-                >
-                  Forensic Replay →
-                </Link>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-mono font-bold text-slate-900 text-xs">
-                    2. legacy-mx.backup.internal (198.51.100.88)
-                  </div>
-                  <div className="text-xs text-amber-700 font-medium mt-1">
-                    Sweet32 3DES Ciphers · CBC Mode · Broken DANE TLSA
-                  </div>
-                </div>
-                <span className="rounded-lg bg-amber-500 px-2.5 py-0.5 text-xs font-extrabold text-white">
-                  Grade D- (54)
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-slate-600 border-t border-amber-200/60 pt-2">
-                <span>Volume: <strong>180 msgs (3.5% outbound)</strong></span>
-                <Link
-                  href="/dashboard/findings?mx=legacy-mx.backup.internal"
-                  className="font-bold text-amber-700 hover:underline"
-                >
-                  View Details →
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Transit Exposure Histogram (FR-27) */}
-        <div className="rounded-3xl border border-border bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-heading flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
-              Cryptographic Exposure Distribution
-            </h3>
-            <span className="text-xs font-mono text-muted">Across 5,120 Messages</span>
-          </div>
-
-          <p className="text-xs text-muted leading-relaxed">
-            Percentage of organization messages transmitted under each cryptographic assurance bracket:
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+            Delivery Chain & Weakest-Link Exposure
+          </h1>
+          <p className="mt-0.5 text-sm text-slate-600">
+            Internal mail servers may be A-grade, but confidential messages leak across external peer transit hops.
           </p>
+        </div>
 
-          <div className="space-y-3 pt-2">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/reports"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
+          >
+            <span>Share the Proof (Reports)</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+
+      {/* 10.3 Plain-English Banner above the Graph */}
+      <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 flex items-start gap-3 shadow-xs">
+        <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+        <div className="text-xs">
+          <span className="font-bold text-rose-900 block text-sm">
+            The weakest link in this delivery chain is Hop 2 (relay-gw.partner.net)
+          </span>
+          <p className="text-rose-800 mt-0.5 leading-relaxed">
+            In packet #142, an adversary intercepted the 250-STARTTLS advertisement and stripped it. While your internal gateway maintains Grade A- security, <strong>17.4% of corporate messages transit in unencrypted cleartext</strong> through Hop 2.
+          </p>
+        </div>
+      </div>
+
+      {/* 10.1 The 4-Hop Chain Interactive Topology */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Left 7 Cols: Interactive SVG Topology */}
+        <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-emerald-700">TLS 1.3 / Strict Pinning (Grade A)</span>
-                <span className="font-mono">3,670 msgs (71.7%)</span>
-              </div>
-              <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: "71.7%" }} />
-              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                Transit Chain Visualizer (4 Hops)
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Click any hop circle to open its cryptographic inspection receipt.
+              </p>
+            </div>
+            <span className="font-mono text-[11px] text-slate-400">
+              Direction: Left → Right
+            </span>
+          </div>
+
+          {/* SVG Canvas */}
+          <div className="relative h-[380px] w-full rounded-2xl bg-slate-950 overflow-hidden border border-slate-800 flex items-center justify-center p-4">
+            <svg
+              viewBox="0 0 700 340"
+              className="h-full w-full select-none"
+            >
+              <defs>
+                <marker
+                  id="arrow-green"
+                  viewBox="0 0 10 10"
+                  refX="18"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" />
+                </marker>
+                <marker
+                  id="arrow-red"
+                  viewBox="0 0 10 10"
+                  refX="18"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#f43f5e" />
+                </marker>
+              </defs>
+
+              {/* Transit Edges */}
+              {/* Edge 1 -> Google (Hop 3) */}
+              <path
+                d="M 160 170 Q 320 80 520 80"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                strokeDasharray="6 3"
+                markerEnd="url(#arrow-green)"
+              />
+              <text x="340" y="70" fill="#34d399" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                TLS 1.3 (48%)
+              </text>
+
+              {/* Edge 1 -> Microsoft (Hop 4) */}
+              <path
+                d="M 160 170 L 520 170"
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                markerEnd="url(#arrow-green)"
+              />
+              <text x="340" y="160" fill="#34d399" fontSize="10" fontFamily="monospace" textAnchor="middle">
+                TLS 1.3 (24%)
+              </text>
+
+              {/* Edge 1 -> Weak Relay (Hop 2 - Weakest Link) */}
+              <path
+                d="M 160 170 Q 320 260 520 260"
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth="3.5"
+                markerEnd="url(#arrow-red)"
+              />
+              <text x="340" y="280" fill="#fda4af" fontSize="10" fontWeight="bold" fontFamily="monospace" textAnchor="middle">
+                STRIPPED CLEARTEXT (17.4%)
+              </text>
+
+              {/* HOP NODES */}
+              {/* Hop 1: Internal Enterprise Ingress */}
+              <g
+                transform="translate(160, 170)"
+                onClick={() => setSelectedHopId("hop-1")}
+                className="cursor-pointer"
+              >
+                <circle
+                  r="46"
+                  fill="#0f172a"
+                  stroke={selectedHopId === "hop-1" ? "#60a5fa" : "#38bdf8"}
+                  strokeWidth={selectedHopId === "hop-1" ? "4" : "2"}
+                />
+                <circle r="38" fill="#1e293b" />
+                <text y="-8" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">
+                  Hop 1 (Ingress)
+                </text>
+                <text y="8" fill="#93c5fd" fontSize="9" fontFamily="monospace" textAnchor="middle">
+                  mx1.corp.net
+                </text>
+                <text y="22" fill="#34d399" fontSize="9" fontWeight="bold" textAnchor="middle">
+                  Grade A- (88)
+                </text>
+              </g>
+
+              {/* Hop 3: Google Workspace */}
+              <g
+                transform="translate(520, 80)"
+                onClick={() => setSelectedHopId("hop-3")}
+                className="cursor-pointer"
+              >
+                <circle
+                  r="36"
+                  fill="#064e3b"
+                  stroke={selectedHopId === "hop-3" ? "#60a5fa" : "#10b981"}
+                  strokeWidth={selectedHopId === "hop-3" ? "4" : "2"}
+                />
+                <text y="-5" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">
+                  Hop 3 (Google)
+                </text>
+                <text y="9" fill="#a7f3d0" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                  aspmx.google
+                </text>
+                <text y="21" fill="#34d399" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  Grade A+ (98)
+                </text>
+              </g>
+
+              {/* Hop 4: Microsoft M365 */}
+              <g
+                transform="translate(520, 170)"
+                onClick={() => setSelectedHopId("hop-4")}
+                className="cursor-pointer"
+              >
+                <circle
+                  r="36"
+                  fill="#064e3b"
+                  stroke={selectedHopId === "hop-4" ? "#60a5fa" : "#10b981"}
+                  strokeWidth={selectedHopId === "hop-4" ? "4" : "2"}
+                />
+                <text y="-5" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">
+                  Hop 4 (M365)
+                </text>
+                <text y="9" fill="#a7f3d0" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                  outlook.com
+                </text>
+                <text y="21" fill="#34d399" fontSize="8" fontWeight="bold" textAnchor="middle">
+                  Grade A (92)
+                </text>
+              </g>
+
+              {/* Hop 2: WEAKEST LINK (relay-gw.partner.net) */}
+              <g
+                transform="translate(520, 260)"
+                onClick={() => setSelectedHopId("hop-2")}
+                className="cursor-pointer"
+              >
+                {/* Glowing alert ring */}
+                <circle
+                  r="48"
+                  fill="#450a0a"
+                  stroke="#f43f5e"
+                  strokeWidth={selectedHopId === "hop-2" ? "4" : "2"}
+                  className="animate-pulse"
+                />
+                <circle r="40" fill="#881337" />
+                <text y="-10" fill="#fecdd3" fontSize="10" fontWeight="bold" textAnchor="middle">
+                  HOP 2 (WEAKEST)
+                </text>
+                <text y="5" fill="#ffe4e6" fontSize="8" fontFamily="monospace" textAnchor="middle">
+                  relay-gw.partner
+                </text>
+                <text y="19" fill="#f43f5e" fontSize="9" fontWeight="bold" textAnchor="middle">
+                  GRADE E (42/100)
+                </text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        {/* Right 5 Cols: 10.2 Inline Hop Inspection Panel */}
+        <div className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Hop #{selectedHop.hopNumber} Inspection Receipt
+              </span>
+              <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                {selectedHop.name}
+              </h3>
+            </div>
+            <TriStateChip state={selectedHop.verdict} size="sm" />
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <span className="text-slate-400 block text-[11px]">Role & Socket:</span>
+              <span className="font-semibold text-slate-800">
+                {selectedHop.role} ({selectedHop.ip}:25)
+              </span>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-blue-700">TLS 1.2 Forward Secrecy (Grade B)</span>
-                <span className="font-mono">380 msgs (7.4%)</span>
-              </div>
-              <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: "7.4%" }} />
-              </div>
+              <span className="text-slate-400 block text-[11px]">Negotiated Cipher:</span>
+              <span className={`font-mono font-bold ${selectedHop.isWeakest ? "text-rose-600" : "text-emerald-700"}`}>
+                {selectedHop.cipher}
+              </span>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-amber-700">Legacy CBC / Weak Ciphers (Grade C/D)</span>
-                <span className="font-mono">180 msgs (3.5%)</span>
-              </div>
-              <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: "3.5%" }} />
-              </div>
+              <span className="text-slate-400 block text-[11px]">Protocol Version:</span>
+              <span className="font-mono font-semibold text-slate-800">
+                {selectedHop.tlsVersion}
+              </span>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-red-700 font-bold">Unencrypted Cleartext / Stripped (Grade E)</span>
-                <span className="font-mono text-red-600 font-bold">890 msgs (17.4%)</span>
-              </div>
-              <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-red-500 rounded-full animate-pulse" style={{ width: "17.4%" }} />
-              </div>
+              <span className="text-slate-400 block text-[11px]">X.509 Certificate Chain:</span>
+              <span className="font-mono text-slate-700">
+                {selectedHop.certStatus}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-slate-400 block text-[11px]">Enforcement Policies:</span>
+              <span className="font-mono text-slate-700">
+                {selectedHop.policy}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-slate-400 block text-[11px]">Traffic Volume:</span>
+              <span className="font-mono font-bold text-slate-800">
+                {selectedHop.trafficVolume}
+              </span>
             </div>
           </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-700 leading-relaxed">
+            <span className="font-bold text-slate-900 block mb-1">
+              Forensic Observation:
+            </span>
+            {selectedHop.narrative}
+          </div>
+
+          {selectedHop.isWeakest && (
+            <Link
+              href="/dashboard/findings?mx=relay-gw.partner.net"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition-colors"
+            >
+              <span>Inspect Downgrade Rule Finding (SMS-ENF-002)</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
         </div>
       </div>
     </div>

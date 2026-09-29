@@ -1,46 +1,89 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Search,
-  ArrowUpDown,
   Download,
   ChevronRight,
+  CheckCircle2,
+  Filter,
 } from "lucide-react";
 import { useDashboard, Severity } from "@/components/dashboard/DashboardContext";
 import { EvidenceDrawer } from "@/components/dashboard/EvidenceDrawer";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { RuleChip } from "@/components/ui/RuleChip";
 
 export default function FindingsPage() {
-  const { findings, selectedFinding, setSelectedFinding, activeSession } = useDashboard();
+  const { findings, selectedFinding, setSelectedFinding, activeSession, loadSampleCapture } =
+    useDashboard();
 
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
-  const [stateFilter, setStateFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<"cvss" | "severity" | "confidence">("cvss");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = useState<"severity" | "cvss" | "confidence">("severity");
 
-  // Filtering
+  if (!activeSession) {
+    return (
+      <EmptyState
+        icon={<Search className="h-6 w-6 text-blue-600" />}
+        title="No Capture Analyzed Yet"
+        description="Ingest a packet capture or try a sample scenario to discover risk-ranked cryptographic vulnerabilities and wire byte proofs."
+        primaryAction={{
+          label: "Go to Ingestion",
+          href: "/dashboard",
+        }}
+        secondaryAction={{
+          label: "Try Sample Capture (1-Click)",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Court-grade RFC rule evaluation with zero packet egress"
+      />
+    );
+  }
+
+  // Zero findings state: "No findings. That's not the same as clean." (Spec 9.4)
+  if (findings.length === 0) {
+    return (
+      <EmptyState
+        icon={<CheckCircle2 className="h-6 w-6 text-emerald-600" />}
+        title="No Vulnerabilities Detected"
+        description="That's not the same as clean. In modern TLS 1.3 handshakes, intermediate certificates and host policies are encrypted on wire and strictly unobservable without private keys. Verify unobservable hops in the posture matrix."
+        primaryAction={{
+          label: "Inspect Posture Matrix & Blindspots →",
+          href: "/dashboard/posture",
+        }}
+        secondaryAction={{
+          label: "Try Vulnerable Sample (STARTTLS Stripping)",
+          onClick: () => loadSampleCapture("stripped"),
+        }}
+        note="Rule catalog evaluated 14 deterministic RFC rules with 0 violations"
+      />
+    );
+  }
+
+  const getOneLineFix = (ruleId: string) => {
+    if (ruleId.includes("ENF-002")) return "Enforce mandatory DANE / MTA-STS to reject unencrypted cleartext fallback.";
+    if (ruleId.includes("CIPH")) return "Disable legacy 3DES/CBC ciphers in MTA; restrict to AEAD suites (AES-256-GCM).";
+    if (ruleId.includes("KEY")) return "Upgrade host key size to minimum 2048-bit RSA or Ed25519.";
+    if (ruleId.includes("RADAR")) return "Inspect network tap or middlebox suppressing 250-STARTTLS advertisement.";
+    return "Publish strict MTA-STS policy on HTTPS well-known endpoint.";
+  };
+
+  // Filter & Search
   const filteredFindings = findings.filter((f) => {
     const matchesSearch =
       f.ruleTitle.toLowerCase().includes(search.toLowerCase()) ||
       f.ruleId.toLowerCase().includes(search.toLowerCase()) ||
       f.mxHost.toLowerCase().includes(search.toLowerCase()) ||
-      f.cwe.toLowerCase().includes(search.toLowerCase());
+      f.summary.toLowerCase().includes(search.toLowerCase());
 
     const matchesSeverity = severityFilter === "ALL" || f.severity === severityFilter;
-    const matchesState = stateFilter === "ALL" || f.state === stateFilter;
-
-    return matchesSearch && matchesSeverity && matchesState;
+    return matchesSearch && matchesSeverity;
   });
 
-  // Sorting
+  // Sort: Default to highest severity first (Critical -> High -> Medium -> Low)
   const sortedFindings = [...filteredFindings].sort((a, b) => {
-    let diff = 0;
-    if (sortBy === "cvss") {
-      diff = a.cvss - b.cvss;
-    } else if (sortBy === "confidence") {
-      diff = a.confidence - b.confidence;
-    } else if (sortBy === "severity") {
+    if (sortBy === "severity") {
       const rank: Record<Severity, number> = {
         CRITICAL: 5,
         HIGH: 4,
@@ -48,9 +91,11 @@ export default function FindingsPage() {
         LOW: 2,
         INFO: 1,
       };
-      diff = rank[a.severity] - rank[b.severity];
+      return rank[b.severity] - rank[a.severity];
+    } else if (sortBy === "cvss") {
+      return b.cvss - a.cvss;
     }
-    return sortOrder === "desc" ? -diff : diff;
+    return b.confidence - a.confidence;
   });
 
   const exportCSV = () => {
@@ -71,158 +116,118 @@ export default function FindingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Title & Section Tag */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-slate-700 mb-2">
-            <Search className="h-3.5 w-3.5 text-slate-600" />
-            Risk-Ranked Evidence Truth
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-blue-700 mb-1.5">
+            <Search className="h-3 w-3 text-blue-600" />
+            Know What to Fix · Stop 3 of 5
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-heading">
-            Forensic Findings Explorer
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+            Forensic Findings & Remediation Playbook
           </h1>
-          <p className="mt-1 text-sm text-body">
-            Every finding links directly to a verifiable byte offset, packet frame number, and RFC clause. Click any row to slide open the forensic evidence chain.
+          <p className="mt-0.5 text-sm text-slate-600">
+            Ranked list of verified vulnerabilities. Click any finding to inspect packet frames, wire byte offsets, and RFC clauses.
           </p>
         </div>
 
-        <button
-          onClick={exportCSV}
-          className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
-        >
-          <Download className="h-4 w-4" />
-          Export Findings CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV Evidence
+          </button>
+          <Link
+            href="/dashboard/graph"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-xs"
+          >
+            <span>Delivery Graph →</span>
+          </Link>
+        </div>
       </div>
 
-      {/* Filter Bar (FR-28 specification) */}
-      <div className="rounded-2xl border border-border bg-white p-4 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by rule (SMS-ENF), host, CVE/CWE, or keyword..."
-              className="w-full rounded-xl border border-border bg-surface-soft pl-10 pr-4 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
-
-          {/* Sort Controls */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500 font-semibold">Sort by:</span>
-            <button
-              onClick={() => {
-                if (sortBy === "cvss") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                else {
-                  setSortBy("cvss");
-                  setSortOrder("desc");
-                }
-              }}
-              className={`rounded-lg px-2.5 py-1.5 font-semibold transition-colors flex items-center gap-1 ${
-                sortBy === "cvss" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              CVSS <ArrowUpDown className="h-3 w-3" />
-            </button>
-            <button
-              onClick={() => {
-                if (sortBy === "severity") setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-                else {
-                  setSortBy("severity");
-                  setSortOrder("desc");
-                }
-              }}
-              className={`rounded-lg px-2.5 py-1.5 font-semibold transition-colors flex items-center gap-1 ${
-                sortBy === "severity" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              Severity <ArrowUpDown className="h-3 w-3" />
-            </button>
-          </div>
+      {/* Filter & Search Bar */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by rule ID, CVE, MTA host, or keyword..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:outline-hidden"
+          />
         </div>
 
-        {/* Filter Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/60">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
-            Severity:
+        {/* Severity Filters */}
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-slate-400 font-semibold mr-1 flex items-center gap-1">
+            <Filter className="h-3 w-3" /> Severity:
           </span>
-          {["ALL", "CRITICAL", "HIGH", "MEDIUM", "INFO"].map((sev) => (
+          {["ALL", "CRITICAL", "HIGH", "MEDIUM"].map((sev) => (
             <button
               key={sev}
               onClick={() => setSeverityFilter(sev)}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
+              className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                 severityFilter === sev
                   ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-surface-soft text-slate-600 hover:bg-slate-200"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
               {sev}
             </button>
           ))}
+        </div>
 
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-4 mr-1">
-            Tri-State:
-          </span>
-          {["ALL", "VULNERABLE", "SECURE", "NOT-OBSERVABLE"].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStateFilter(st)}
-              className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
-                stateFilter === st
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-surface-soft text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+        {/* Sort */}
+        <div className="flex items-center gap-1.5 text-xs font-mono">
+          <span className="text-slate-400 font-sans font-semibold">Sort:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "severity" | "cvss" | "confidence")}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700"
+          >
+            <option value="severity">Ranked Severity</option>
+            <option value="cvss">CVSS Score</option>
+            <option value="confidence">Confidence</option>
+          </select>
         </div>
       </div>
 
-      {/* Findings Table */}
-      <div className="rounded-3xl border border-border bg-white shadow-xs overflow-hidden">
+      {/* 9.1 Ranked Findings Table (Top severity first) */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-border bg-surface-soft text-slate-500 font-bold uppercase text-[10px]">
-                <th className="py-3.5 px-4">Severity</th>
-                <th className="py-3.5 px-3">Rule ID</th>
-                <th className="py-3.5 px-4">Description / Finding</th>
-                <th className="py-3.5 px-3">Observed Host</th>
-                <th className="py-3.5 px-3 text-center">Service</th>
-                <th className="py-3.5 px-3 text-center">CVSS</th>
-                <th className="py-3.5 px-3 text-center">Confidence</th>
-                <th className="py-3.5 px-3">State</th>
-                <th className="py-3.5 px-4 text-right">Evidence</th>
+              <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-600 text-[11px] uppercase tracking-wider">
+                <th className="py-3 px-4">Severity</th>
+                <th className="py-3 px-3">Rule ID</th>
+                <th className="py-3 px-4">Title & Remediation Fix</th>
+                <th className="py-3 px-4">Target Hop / Host</th>
+                <th className="py-3 px-3 text-center">CVSS</th>
+                <th className="py-3 px-4 text-right">Wire Offset</th>
+                <th className="py-3 px-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-slate-100 font-sans">
               {sortedFindings.map((finding) => (
                 <tr
                   key={finding.id}
                   onClick={() => setSelectedFinding(finding)}
-                  className={`cursor-pointer transition-colors ${
-                    selectedFinding?.id === finding.id
-                      ? "bg-primary-soft/40"
-                      : finding.state === "NOT-OBSERVABLE"
-                      ? "bg-slate-50/60 hover:bg-slate-100"
-                      : "hover:bg-slate-50"
-                  }`}
+                  className="group cursor-pointer hover:bg-blue-50/40 transition-colors"
                 >
-                  {/* Severity Badge */}
-                  <td className="py-3.5 px-4">
+                  {/* Severity */}
+                  <td className="py-3.5 px-4 whitespace-nowrap">
                     <span
-                      className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-extrabold ${
+                      className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${
                         finding.severity === "CRITICAL"
-                          ? "bg-red-100 text-red-700 border border-red-200"
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
                           : finding.severity === "HIGH"
                           ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : finding.severity === "MEDIUM"
-                          ? "bg-amber-100 text-amber-700 border border-amber-200"
-                          : "bg-blue-100 text-blue-700 border border-blue-200"
+                          : "bg-blue-50 text-blue-700 border border-blue-200"
                       }`}
                     >
                       {finding.severity}
@@ -230,28 +235,23 @@ export default function FindingsPage() {
                   </td>
 
                   {/* Rule ID */}
-                  <td className="py-3.5 px-3 font-mono font-bold text-slate-800">
-                    {finding.ruleId}
+                  <td className="py-3.5 px-3 whitespace-nowrap">
+                    <RuleChip ruleId={finding.ruleId} />
                   </td>
 
-                  {/* Title & CWE */}
+                  {/* Title & One-Line Fix */}
                   <td className="py-3.5 px-4 max-w-md">
-                    <div className="font-bold text-heading truncate">
+                    <div className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                       {finding.ruleTitle}
                     </div>
-                    <div className="text-[11px] text-muted truncate mt-0.5">
-                      {finding.cwe}
+                    <div className="mt-0.5 text-[11px] text-slate-500 font-mono truncate">
+                      Fix: {getOneLineFix(finding.ruleId)}
                     </div>
                   </td>
 
-                  {/* Observed Host */}
-                  <td className="py-3.5 px-3 font-mono text-slate-700">
+                  {/* Hop */}
+                  <td className="py-3.5 px-4 whitespace-nowrap font-mono text-[11px] font-semibold text-slate-700">
                     {finding.mxHost}
-                  </td>
-
-                  {/* Service */}
-                  <td className="py-3.5 px-3 text-center font-mono font-semibold text-slate-600">
-                    {finding.service}
                   </td>
 
                   {/* CVSS */}
@@ -259,57 +259,24 @@ export default function FindingsPage() {
                     <span
                       className={
                         finding.cvss >= 9.0
-                          ? "text-red-600"
+                          ? "text-rose-600"
                           : finding.cvss >= 7.0
                           ? "text-amber-600"
-                          : finding.cvss > 0
-                          ? "text-amber-600"
-                          : "text-slate-400"
+                          : "text-slate-600"
                       }
                     >
                       {finding.cvss.toFixed(1)}
                     </span>
                   </td>
 
-                  {/* Confidence */}
-                  <td className="py-3.5 px-3 text-center font-mono font-semibold">
-                    <span
-                      className={
-                        finding.confidence >= 0.8
-                          ? "text-emerald-700"
-                          : "text-amber-700"
-                      }
-                    >
-                      {(finding.confidence * 100).toFixed(0)}%
-                    </span>
+                  {/* Wire Offset */}
+                  <td className="py-3.5 px-4 text-right font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                    {finding.provenance.byteOffset}
                   </td>
 
-                  {/* Tri-state Badge (Never solid green for not-observable) */}
-                  <td className="py-3.5 px-3">
-                    <span
-                      className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                        finding.state === "VULNERABLE"
-                          ? "bg-red-50 text-red-700 border border-red-200"
-                          : finding.state === "SECURE"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-200 text-slate-600 border border-slate-300"
-                      }`}
-                    >
-                      {finding.state}
-                    </span>
-                  </td>
-
-                  {/* Evidence CTA */}
-                  <td className="py-3.5 px-4 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedFinding(finding);
-                      }}
-                      className="inline-flex items-center gap-1 font-bold text-primary hover:underline text-xs"
-                    >
-                      Inspect <ChevronRight className="h-3 w-3" />
-                    </button>
+                  {/* Arrow */}
+                  <td className="py-3.5 px-3 text-right">
+                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all inline" />
                   </td>
                 </tr>
               ))}
@@ -318,7 +285,7 @@ export default function FindingsPage() {
         </div>
       </div>
 
-      {/* Evidence Drawer Overlay */}
+      {/* Evidence Drawer */}
       <EvidenceDrawer
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}

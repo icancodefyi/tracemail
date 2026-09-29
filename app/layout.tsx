@@ -24,6 +24,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { ToastProvider } from "@/components/ui/Toast";
+
 export default function RootLayout({
   children,
 }: {
@@ -32,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${interTight.variable} h-full antialiased`}>
       <body className="min-h-screen bg-surface text-heading font-sans selection:bg-primary/20 selection:text-primary">
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
