@@ -66,10 +66,17 @@ def _refusal(reason: str, model: Optional[str] = None, retrieved: Optional[List[
 
 
 @router.post("", response_model=AskResponse)
-def ask_question(req: AskRequest):
+def ask_question(req: AskRequest, session_id: Optional[str] = None):
     q = (req.question or "").strip()
     if not q:
         return _refusal("empty question")
+
+    # Accept the session from the body or the query string. Previously only the
+    # body was read, so a caller passing ?session_id=... got a silent success:
+    # the request was answered from RFC/rubric text alone, with none of the
+    # capture's own findings, and capture-specific questions wrongly refused.
+    # Failing open to a less-grounded answer is the worst outcome for this API.
+    sid = (req.session_id or session_id or "").strip()
 
     # (1) Scope guardrail, before any model call.
     if any(k in q.lower() for k in _OUT_OF_SCOPE_KEYWORDS):
@@ -81,9 +88,9 @@ def ask_question(req: AskRequest):
 
     # Resolve the session's findings so the retriever can ground on them.
     findings: List[dict] = []
-    if req.session_id:
+    if sid:
         try:
-            findings = build_report(req.session_id).get("findings", [])
+            findings = build_report(sid).get("findings", [])
         except Exception:  # noqa: BLE001 - a bad session must not break the guardrail
             findings = []
 

@@ -89,7 +89,12 @@ _SYSTEM = (
     "3. If the context does not contain the answer, reply exactly: "
     "INSUFFICIENT_EVIDENCE\n"
     "4. Never speculate. Never state a certainty the evidence does not show.\n"
-    "5. Be concise and technical. Plain prose, no headings, no preamble."
+    "5. Be concise and technical. Plain prose, no headings, no preamble.\n"
+    "6. A span whose id begins FINDING- is an observation actually made in the "
+    "capture under analysis. If such a span is present and the question is about "
+    "what this capture shows, it IS the answer: answer from it and cite it. Do not "
+    "reply INSUFFICIENT_EVIDENCE merely because the answer is short, and do not "
+    "wait for a standards span to confirm something the capture already records."
 )
 
 
